@@ -1,71 +1,77 @@
 <?php
 
+
+
 require_once('classes/database.php');
+
+
 require_once('classes/functions.php');
+
 
 $con = new database();
 
+$data = $con->opencon();
+
 $sweetAlertConfig = "";
-
-if(isset($_POST['multisave'])) {
-
-  //Getting the account information
+if (isset($_POST['multisave'])) {
+  
   $email = $_POST['email'];
   $username = $_POST['username'];
-  $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
-
-  //Getting the personal infromation
+  $password = password_hash($_POST['password'],PASSWORD_BCRYPT);
   $firstname = $_POST['firstname'];
   $lastname = $_POST['lastname'];
   $birthday = $_POST['birthday'];
   $sex = $_POST['sex'];
   $phone = $_POST['phone'];
 
-  //Handle file upload for profile picture
+
+
   $profile_picture_path = handleFileUpload($_FILES["profile_picture"]);
+  
+  
+
   if ($profile_picture_path === false) {
-      $_SESSION['error'] = "Sorry, there was an error uploading your file or the file is invalid.";
-  } else {
+    $_SESSION['error'] = "Sorry, there was an error uploading your file or the file is invalid.";
+  }else{
 
-  //Save the user data in the Users table
-    $user_id = $con->signupUser($firstname, $lastname, $birthday, $email, $sex, $phone, $username, $password, $profile_picture_path);
+    $userID = $con->signupUser($firstname, $lastname, $birthday, $email, $sex, $phone, $username,  $password, $profile_picture_path);
+    
+    if ($userID) {
+      $street = $_POST['user_street'];
+      $barangay = $_POST['user_barangay'];
+      $city = $_POST['user_city'];
+      $province = $_POST['user_province'];
 
-  if ($user_id) {
-    //Save the address information if user was successfully inserted
-    $street = $_POST['user_street'];
-    $barangay = $_POST['user_barangay'];
-    $city = $_POST['user_city'];
-    $province = $_POST['user_province'];
-
-      if ($con->insertAddress($user_id, $street, $barangay, $city, $province)) {
-        // Address insertion successful, set SweetAlert script
+      if ($con->insertAddress($userID, $street, $barangay, $city, $province)){
         $sweetAlertConfig = "
-            <script>
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Registration Successful',
-                    text: 'Your account has been created successfully',
-                    confirmButtonText: 'OK'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        window.location.href = 'login.php';
-                    }
-                });
-            </script>";
-        } else {
-            $_SESSION['error'] = "Error occured while inserting address. Please try again.";
+        <script>
+        Swal.fire({
+          icon: 'success',
+          title: 'Registration Successful',
+          text: 'Your account has been created succesfully!',
+          confirmButtonText: 'OK'
+        }).then((result) => {
+        if (result.isConfirmed) {
+        window.location.href = 'login.php';
         }
-      }else {
-        $_SESSION['error'] = "Sorry there was an error signing up.";
+        });
+        </script> ";
+      }else{
+        $_SESSION['error'] = "Error occured while inserting address. Please try again.";
       }
+
+    }else{
+      $_SESSION['error'] = "Sorry, there wan an error signing up.";
     }
+
   }
 
-
-$data = $con->opencon();
-
+}
 
 ?>
+
+
+
 
 <!doctype html>
 <html lang="en">
@@ -73,15 +79,20 @@ $data = $con->opencon();
   <!-- Required meta tags -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+
   <!-- Bootstrap CSS -->
+  
+
+  <link rel="stylesheet" href="./package/dist/sweetalert2.css">
   <link rel="stylesheet" href="./bootstrap-4.5.3-dist/css/bootstrap.css">
   <link rel="stylesheet" href="./bootstrap-5.3.3-dist/css/bootstrap.css">
+
   <!-- JQuery for Address Selector -->
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-
+  
 
   <title>LMS | Registration</title>
   <style>
@@ -94,14 +105,16 @@ $data = $con->opencon();
   </style>
 </head>
 <body>
+<script src="package/dist/sweetalert2.js"></script>
 
-<script src="package/dist/sweetalert2.all.min.js"></script>
 <?php
 // Output SweetAlert script if set
 if (!empty($sweetAlertConfig)) {
-    echo $sweetAlertConfig;
-    exit; // Stop further execution
+  echo $sweetAlertConfig;  // This will print the SweetAlert2 code
+  exit;  // Ensure no further processing happens
 }
+
+
 ?>
 <div class="container custom-container rounded-3 shadow my-5 p-3 px-5">
   <h3 class="text-center mt-4">Registration Form</h3>
@@ -247,6 +260,9 @@ if (!empty($sweetAlertConfig)) {
     </div>
   </form>
 </div>
+
+
+
 <script src="./bootstrap-5.3.3-dist/js/bootstrap.js"></script>
 <!-- Script for Address Selector -->
 <script src="ph-address-selector.js"></script>
@@ -366,24 +382,69 @@ function validateStep(step) {
       }
       
     });
+  
   </script>
-  
 
-  <?php echo $sweetAlertConfig; ?>
- 
- <?php if (isset($_SESSION['error'])): ?>
- <script>
-     Swal.fire({
-         icon: 'error',
-         title: 'Oops...',
-         text: '<?php echo addslashes($_SESSION["error"]); ?>',
-         confirmButtonText: 'OK'
-     });
- </script>
- <?php unset($_SESSION['error']); ?>
- <?php endif; ?>
-  
- <script src="./bootstrap-5.3.3-dist/js/bootstrap.js"></script>
+  <!-- AJAX for live checking of existing emails (inside the registration.php) (CODE STARTS HERE) -->
+<script>
+$(document).ready(function(){
+    function toggleNextButton(isEnabled) {
+        $('#nextButton').prop('disabled', !isEnabled);
+    }
 
+    $('#email').on('input', function(){
+        var email = $(this).val();
+        if (email.length > 0) {
+            $.ajax({
+                url: 'AJAX/check_email.php',
+                method: 'POST',
+                data: { email: email },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.exists) {
+                        // Email is already taken
+                        $('#email').removeClass('is-valid').addClass('is-invalid');
+                        $('#emailFeedback').text('Email is already taken.').show();
+                        $('#email')[0].setCustomValidity('Email is already taken.');
+                        $('#email').siblings('.invalid-feedback').not('#emailFeedback').hide();
+                        toggleNextButton(false); // ❌ Disable next button
+                    } else {
+                        // Email is valid and available
+                        $('#email').removeClass('is-invalid').addClass('is-valid');
+                        $('#emailFeedback').text('').hide();
+                        $('#email')[0].setCustomValidity('');
+                        $('#email').siblings('.valid-feedback').show();
+                        toggleNextButton(true); // ✅ Enable next button
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('An error occurred: ' + error);
+                }
+            });
+        } else {
+            // Empty input reset
+            $('#email').removeClass('is-valid is-invalid');
+            $('#emailFeedback').text('').hide();
+            $('#email')[0].setCustomValidity('');
+            toggleNextButton(false); // ❌ Disable next button
+        }
+    });
+
+    $('#email').on('invalid', function() {
+        if ($('#email')[0].validity.valueMissing) {
+            $('#email')[0].setCustomValidity('Please enter a valid email.');
+            $('#emailFeedback').hide();
+            toggleNextButton(false); // ❌ Disable next button
+        }
+    });
+});
+</script>
+
+ <!-- AJAX for live checking of existing emails (should be pasted in the registration.php) (CODE ENDS HERE) -->
+
+
+
+  
   </body>
   </html>
+  
