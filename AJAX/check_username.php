@@ -4,7 +4,7 @@
 header('Content-Type: application/json'); 
 
 if (isset($_POST['username'])) {
-    $email = $_POST['username']; 
+    $username = $_POST['username']; 
     $con = new database();
 
     $db = $con->opencon();
@@ -25,3 +25,5 @@ if (isset($_POST['username'])) {
 }
 
 ?>
+
+
